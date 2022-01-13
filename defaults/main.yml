@@ -1,0 +1,35 @@
+---
+
+oods_buildtools_repo: "{{ ansible_env.HOME }}/oods/build_tools"
+# use empty string to build *all* OnlyOffice components
+# note that https://github.com/ONLYOFFICE/build_tools commit cf4cac9 is buggy 
+# and only works for "" ("server" always fails with videoplayer error)
+# see files/build-server-14.04-nodejs-10.24.1-npm-6.14.12-rpc
+# https://github.com/ONLYOFFICE/build_tools/issues/82
+oods_buildtools_component: ""
+# this role checks out the specific version set here
+# because the build process is very finicky and likely not applicable for other commits
+oods_buildtools_version: "cf4cac94821133567437a06d634ec15d8da861cb"
+
+# I suggest you only set rebuild==true using extra-vars
+oods_rebuild: false
+oods_out_folder: "{{ oods_buildtools_repo }}/out/linux_64/onlyoffice/documentserver"
+oods_config_folder: "{{ oods_out_folder }}/server/Common/config"
+
+oods_db_name: "onlyoffice"
+oods_db_user: "onlyoffice"
+# is it necessary to use password "onlyoffice" during install? No, not necessary.
+# https://github.com/ONLYOFFICE/server#installing-necessary-components
+oods_db_pwd: "{{ lookup('community.general.passwordstore', 'hosts/lahore/postgresql/onlyoffice') }}"
+oods_db_host: "localhost"
+
+oods_secret_token: "{{ lookup('community.general.passwordstore', 'ansible/roles/onlyoffice-docs/token') }}"
+oods_env: "development-linux"
+
+# this should generally be postgres (the default psql admin user)
+db_admin_username: postgres
+
+oods_host:
+  url: "onlyoffice.example.com"
+  email: "webmaster@example.com"
+  port: 8000

@@ -1,0 +1,52 @@
+---
+
+# DocService FileConverter SpellChecker
+# init-checkconf to check if your configuration is valid
+# Output is written to /var/log/upstart/oodocservice.log
+# sudo initctl list to see all registered services
+# sudo service --status-all
+
+# https://askubuntu.com/questions/351879/how-to-create-a-service-on-ubuntu-upstart
+# https://zohaib.me/how-to-reliably-start-a-service-with-upstart/
+# https://upstart.ubuntu.com/cookbook/
+# https://upstart.ubuntu.com/cookbook/#normal-start
+# https://stackoverflow.com/questions/14823972/upstart-node-js-working-directory
+
+- name: Install OnlyOffice's upstart job(s) in /etc/init/
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/init/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  loop:
+    - { src: DocService.conf.j2,    dest: oodocservice.conf }
+    - { src: FileConverter.conf.j2, dest: oofileconverter.conf }
+
+# to enable bash completion for your service, create a symlink to /etc/init.d/
+- name: Enable bash autocompletion for upstart job(s)
+  ansible.builtin.file:
+     src: "/etc/init/{{ item.src }}"
+     dest: "/etc/init.d/{{ item.dest }}"
+     owner: root
+     group: root
+     state: link
+  loop:
+    - { src: oodocservice.conf,   dest: oodocservice }
+    - { src: oofileconverter.conf, dest: oofileconverter }
+
+- name: Enable OnlyOffice upstart job(s)
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: yes
+  loop:
+    - oodocservice
+    - oofileconverter
+
+- name: Start OnlyOffice upstart job(s)
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+  loop:
+    - oodocservice
+    - oofileconverter

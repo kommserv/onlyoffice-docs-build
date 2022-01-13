@@ -1,0 +1,24 @@
+---
+
+dependencies:
+  # https://codeberg.org/ansible/fonts
+  - role: fonts        # no dependencies
+    become: true
+    tags: fonts
+  # https://codeberg.org/ansible/nodejs
+  - role: nodejs       # no dependencies
+    become: true
+    tags: nodejs
+  # https://codeberg.org/ansible/apache
+  - role: apache       # depends on php and php-versions, but dependence disabled for this role
+    become: true
+    tags: apache
+  # https://codeberg.org/ansible/redis
+  # redis role defines `redis_socket`, which is required by this role
+  - role: redis        # depends on php and php-versions, but dependence disabled for this role
+    become: true
+    tags: redis
+  # https://codeberg.org/ansible/postgres
+  - role: postgres
+    become: true
+    tags: postgres

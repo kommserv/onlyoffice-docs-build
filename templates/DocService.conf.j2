@@ -1,0 +1,11 @@
+# oodocservice.conf
+
+description "OnlyOffice Docs DocService daemon"
+
+start on (local-filesystems and net-device-up IFACE!=lo)
+
+env NODE_ENV={{ oods_env }}
+env NODE_CONFIG_DIR={{ oods_config_folder }}
+chdir {{ oods_out_folder }}/server/DocService
+
+exec ./docservice

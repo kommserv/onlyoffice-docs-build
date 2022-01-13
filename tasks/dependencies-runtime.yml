@@ -1,0 +1,46 @@
+---
+
+# https://github.com/ONLYOFFICE/server#setting-up-the-system
+# https://www.rabbitmq.com/management.html
+
+- name: Install rabbitmq-server
+  ansible.builtin.apt:
+    name: rabbitmq-server
+    state: present
+
+- name: Install other runtime dependencies
+  ansible.builtin.apt:
+    name: 
+      - adduser
+      - libstdc++6
+      - libxml2
+      - libboost-regex-dev
+      - zlib1g 
+      - libxss1 
+      - libcairo2 
+      - xvfb 
+      - libxtst6 
+      - libasound2
+      - libgconf-2-4   # GNOME configuration database system (shared libraries)
+    state: present
+
+
+# libcurl4 is not available on bionic and earlier
+# libcurl3 is not available on focal and later
+- name: Install other runtime dependencies
+  block:
+
+    - name: Install runtime dependencies on Ubuntu Bionic and older
+      ansible.builtin.apt: 
+        name: 
+          - libcurl3      # easy-to-use client-side URL transfer library (OpenSSL flavour)
+        state: present
+      when: ansible_distribution_major_version | int <= 18
+    
+    - name: Install runtime dependencies on Ubuntu Focal and newer
+      ansible.builtin.apt: 
+        name: 
+          - libcurl4       # easy-to-use client-side URL transfer library (OpenSSL flavour)
+        state: present
+      when: ansible_distribution_major_version | int >= 20
+  # END OF BLOCK

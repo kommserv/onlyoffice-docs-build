@@ -1,0 +1,39 @@
+---
+
+- name: Wipe fonts directory (if it exists)
+  ansible.builtin.file:
+    path: "{{ oods_out_folder }}/fonts"
+    state: absent
+
+- name: Create empty fonts directory
+  ansible.builtin.file:
+    path: "{{ oods_out_folder }}/fonts"
+    state: directory
+    owner: "{{ ansible_env.USER }}"
+    group: "{{ ansible_env.USER }}"
+
+- name: Generate fonts data
+  ansible.builtin.command: >
+    server/tools/allfontsgen
+    --input="{{ oods_out_folder }}/core-fonts"
+    --allfonts-web="{{ oods_out_folder }}/sdkjs/common/AllFonts.js"
+    --allfonts="{{ oods_out_folder }}/server/FileConverter/bin/AllFonts.js"
+    --images="{{ oods_out_folder }}/sdkjs/common/Images"
+    --selection="{{ oods_out_folder }}/server/FileConverter/bin/font_selection.bin"
+    --output-web="fonts"
+    --use-system="true"
+  environment:
+    LD_LIBRARY_PATH: "{{ oods_out_folder }}/server/FileConverter/bin"
+  args:
+    chdir: "{{ oods_out_folder }}"
+
+- name: Generate presentation themes
+  ansible.builtin.command: >
+    server/tools/allthemesgen
+    --converter-dir="{{ oods_out_folder }}/server/FileConverter/bin"
+    --src="{{ oods_out_folder }}/sdkjs/slide/themes"
+    --output="{{ oods_out_folder }}/sdkjs/common/Images"
+  environment:
+    LD_LIBRARY_PATH: "{{ oods_out_folder }}/server/FileConverter/bin"
+  args:
+    chdir: "{{ oods_out_folder }}"

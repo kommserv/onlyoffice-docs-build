@@ -1,0 +1,36 @@
+<VirtualHost *:80>
+   ServerAdmin {{ vhost_email }}
+   ServerName {{ vhost_domain }}
+
+   Redirect permanent / https://{{ vhost_domain }}/
+
+   Loglevel info
+   ErrorLog ${APACHE_LOG_DIR}/{{ vhost_domain }}_error.log
+   CustomLog ${APACHE_LOG_DIR}/{{ vhost_domain }}_access.log combined
+</VirtualHost>
+
+<VirtualHost *:443>
+   ServerName {{ vhost_domain }}
+   ServerAdmin {{ vhost_email }} 
+
+   SetEnvIf Host "^(.*)$" THE_HOST=$1
+   RequestHeader setifempty X-Forwarded-Proto http
+   RequestHeader setifempty X-Forwarded-Host %{THE_HOST}e
+
+   # https://github.com/ONLYOFFICE/onlyoffice-nextcloud/issues/248#issuecomment-643701254
+   # https://github.com/biva/documentation/blob/biva/admin_manual/configuration_server/onlyoffice_configuration.rst
+   ProxyAddHeaders Off
+   ProxyPass /.well-known !
+   # is this ws proxy really necessary?
+   ProxyPassMatch (.*)(\/websocket)$ ws://{{ vhost_ip }}:{{ vhost_port }}/$1$2
+   ProxyPass / http://{{ vhost_ip }}:{{ vhost_port }}/
+   ProxyPassReverse / http://{{ vhost_ip }}:{{ vhost_port }}/
+
+   SSLEngine on
+   SSLCertificateKeyFile   /etc/letsencrypt/live/{{ vhost_domain }}/privkey.pem
+   SSLCertificateFile      /etc/letsencrypt/live/{{ vhost_domain }}/cert.pem
+   SSLCertificateChainFile /etc/letsencrypt/live/{{ vhost_domain }}/chain.pem
+
+   ErrorLog ${APACHE_LOG_DIR}/{{ vhost_domain }}_error.log
+   CustomLog ${APACHE_LOG_DIR}/{{ vhost_domain }}_access.log combined
+</VirtualHost>

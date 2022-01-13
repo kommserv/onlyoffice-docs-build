@@ -1,0 +1,101 @@
+---
+
+# OnlyOffice official docs recommends creating local.json for all custom config
+# perhaps that's both easier and more elegant than editing default.json in-place?
+# Except "arrays are merged by replacement" which means local.json would need
+# to contain not just the modified lines, but the entire array in question?
+# https://github.com/lorenwest/node-config/wiki/Configuration-Files#arrays-are-merged-by-replacement
+# so perhaps we will stick with my edit-in-place approach...
+# (the main reason of using local.json and avoiding edits in default.json is to avoid
+# losing customisations on upgrades, which we are protected against anyway thanks to 
+# using an Ansible playbook)
+
+# patching JSON is somehow not built-in to Ansible, nor yet part of any collection
+# https://stackoverflow.com/questions/46025695/best-way-to-modify-json-in-ansible
+# https://github.com/ansible/ansible/issues/49071
+# https://github.com/ansible-collections/community.general/pull/378
+# https://github.com/ParticleDecay/ansible-jsonpatch
+# NOTE: json_patch is great, but the down-side is that it rewrites the entire JSON file
+# TIP: "pretty: yes" makes the modified JSON human-readable, but unfortunately in such a way
+# that every line is still registered as "changed" by git
+
+# No such setting in default.json. Not necessary when built from source?
+# - name: Reset limit on number of concurrent connections
+#   ansible.builtin.lineinfile:
+#     path: "{{ oods_repo }}/server/Common/sources/constants.js"
+#     regexp: "^exports\\.LICENSE_CONNECTIONS"
+#     line: "exports.LICENSE_CONNECTIONS = {{ oods_connections }};"
+
+- name: "Merge settings in provided {{ oods_env }}.json with default.json"
+  ansible.builtin.copy:
+    src: default-merged-dev.json
+    dest: "{{ oods_buildtools_repo }}/out/linux_64/onlyoffice/documentserver/server/Common/config/{{ oods_env }}.json"
+    owner: "{{ ansible_env.USER }}"
+    group: "{{ ansible_env.USER }}"
+    mode: u=rw,go=r
+
+- name: "Configure secret token for OnlyOffice<->Nextcloud connection in {{ oods_env }}.json"
+  json_patch:
+    src: "{{ oods_buildtools_repo }}/out/linux_64/onlyoffice/documentserver/server/Common/config/{{ oods_env }}.json"
+    pretty: yes
+    operations:
+      - op: replace
+        path: "{{ item.path }}"
+        value: "{{ item.value }}"
+  notify: Restart OnlyOffice services
+  loop:
+    - { path: "/services/CoAuthoring/secret/browser/string",  value: "{{ oods_secret_token }}" }
+    - { path: "/services/CoAuthoring/secret/inbox/string",    value: "{{ oods_secret_token }}" }
+    - { path: "/services/CoAuthoring/secret/outbox/string",   value: "{{ oods_secret_token }}" }
+    - { path: "/services/CoAuthoring/secret/session/string",  value: "{{ oods_secret_token }}" }
+    - { path: "/services/CoAuthoring/token/enable/browser",           value: true }
+    - { path: "/services/CoAuthoring/token/enable/request/inbox",     value: true }
+    - { path: "/services/CoAuthoring/token/enable/request/outbox",    value: true }
+    - { path: "/services/CoAuthoring/token/browser/secretFromInbox",  value: true }
+
+# In the `services.CoAuthoring.sql` block, set 
+# `dbPass`, `dbHost`, `dbPort`, `dbName`, `dbUser`, and `charset`
+# as required.
+- name: "Configure PostgreSQL block in {{ oods_env }}.json"
+  json_patch:
+    src: "{{ oods_buildtools_repo }}/out/linux_64/onlyoffice/documentserver/server/Common/config/{{ oods_env }}.json"
+    pretty: yes
+    operations:
+      - op: replace
+        path: "{{ item.path }}"
+        value: "{{ item.value }}"
+  notify: Restart OnlyOffice services
+  loop:
+    - { path: "/services/CoAuthoring/sql/dbPass", value: "{{ oods_db_pwd }}" }
+
+- name: Configure Redis block in default.json
+  block:
+
+    - name: Configure Redis to use UNIX socket
+      when: redis_port == 0
+      json_patch:
+        src: "{{ oods_buildtools_repo }}/out/linux_64/onlyoffice/documentserver/server/Common/config/{{ oods_env }}.json"
+        pretty: yes
+        operations:
+          - op: replace
+            path: "{{ item.path }}"
+            value: "{{ item.value }}"
+      notify: Restart OnlyOffice services
+      loop:
+        - { path: "/services/CoAuthoring/redis/host", value: "{{ redis_socket.path }}" }
+        - { path: "/services/CoAuthoring/redis/port", value: "{{ redis_port }}" }
+
+    - name: "Configure Redis to use port {{ redis_port }}"
+      when: redis_port != 0
+      json_patch:
+        src: "{{ oods_buildtools_repo }}/out/linux_64/onlyoffice/documentserver/server/Common/config/{{ oods_env }}.json"
+        pretty: yes
+        operations:
+          - op: replace
+            path: "{{ item.path }}"
+            value: "{{ item.value }}"
+      notify: Restart OnlyOffice services
+      loop:
+        - { path: "/services/CoAuthoring/redis/host", value: "localhost" }
+        - { path: "/services/CoAuthoring/redis/port", value: "{{ redis_port }}" }
+  # END OF BLOCK

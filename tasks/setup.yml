@@ -1,0 +1,7 @@
+---
+
+- import_tasks: setup-postgresql-db.yml
+  tags: onlyoffice-postgresql
+
+- import_tasks: setup-apache-vhost.yml
+  tags: onlyoffice-vhost

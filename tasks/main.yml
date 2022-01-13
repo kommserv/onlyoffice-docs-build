@@ -1,0 +1,25 @@
+---
+
+### <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+### NOTE!
+### In order to run this role against Ubuntu 14.04 host, you must set
+### vars: ansible_python_interpreter: /usr/bin/python2
+### in the playbook's hosts.yml file
+### <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+- import_tasks: dependencies-build.yml
+- import_tasks: dependencies-runtime.yml
+
+# build OnlyOffice DocumentServer from source using build_tools repo
+# this step is expected to take hours
+- import_tasks: build-tools.yml
+  when: oods_rebuild | bool
+
+- import_tasks: setup.yml
+
+- import_tasks: config-json.yml
+  tags: onlyoffice-config-json
+
+# create upstart jobs
+- import_tasks: config-service.yml
+  tags: onlyoffice-config-service

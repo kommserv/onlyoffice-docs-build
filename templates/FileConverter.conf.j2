@@ -1,0 +1,11 @@
+# oofileconverter.conf
+
+description "OnlyOffice Docs FileConverter daemon"
+
+start on (local-filesystems and net-device-up IFACE!=lo)
+
+env NODE_ENV={{ oods_env }}
+env NODE_CONFIG_DIR={{ oods_config_folder }}
+chdir {{ oods_out_folder }}/server/FileConverter
+
+exec ./converter

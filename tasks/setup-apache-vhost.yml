@@ -1,0 +1,33 @@
+---
+
+# https://github.com/ONLYOFFICE/document-server-proxy/blob/master/apache/minimal.conf
+# https://github.com/ONLYOFFICE/document-server-proxy/blob/master/apache/proxy-https-to-http.conf
+# https://github.com/ONLYOFFICE/document-server-proxy/issues/10
+# 
+# Note that I have consciously decided to avoid the unixd stuff suggested in the OODS example vhosts.
+# Seems the OnlyOffice Docs service is supposed to be running on port 8000? Or is that just for Docker? 
+
+- name: Set facts for Apache vhost
+  ansible.builtin.set_fact:
+    vhost_domain: "{{ oods_host.url }}"
+    vhost_ip: 127.0.0.1
+    vhost_email: "{{ oods_host.email }}"
+    vhost_port: "{{ oods_host.port }}"
+
+- name: "Configure vhost {{ vhost_domain }}"
+  ansible.builtin.template:
+    src: vhost.conf.j2
+    dest: "/etc/apache2/sites-available/{{ vhost_domain }}.conf"
+    owner: root
+    group: root
+    mode: u=rw,go=r
+  notify: reload apache
+
+- name: "Check whether site {{ vhost_domain }} is already enabled"
+  ansible.builtin.stat:
+    path: "/etc/apache2/sites-enabled/{{ vhost_domain }}.conf"
+  register: vhost_enabled
+
+- name: "a2ensite {{ vhost_domain }}.conf"
+  ansible.builtin.command: "a2ensite {{ vhost_domain }}.conf"
+  when: not (vhost_enabled.stat.exists | bool)

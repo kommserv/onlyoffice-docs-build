@@ -1,0 +1,9 @@
+---
+
+- name: Restart OnlyOffice services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - oodocservice
+    - oofileconverter

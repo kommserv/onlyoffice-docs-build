@@ -1,0 +1,73 @@
+---
+
+
+- name: "Install psycopg2 for Python2 (required for postgresql plugins)"
+  ansible.builtin.apt:
+    name: python-psycopg2
+    state: present
+
+# https://docs.ansible.com/ansible/latest/collections/community/postgresql/postgresql_info_module.html
+- name: Collect info on existing PostgreSQL databases
+  community.postgresql.postgresql_info:
+    filter:
+      - "databases"
+  become: true
+  become_user: "{{ db_admin_username }}"
+  register: oods_psql_info
+
+
+# note that creation of the pgsql role (i.e., user) must happen *before* that role/user
+# can be assigned as owner of a database
+- name: Create PostgreSQL user and database
+  become: true
+  become_user: "{{ db_admin_username }}"
+  block:
+
+    # It seems the postgresql plugins requires psycopg2 on the target
+    # "Failed to import the required Python library (psycopg2) on lahore's Python /usr/bin/python2. 
+    #  Please read the module documentation and install it in the appropriate location. 
+    #  If the required library is installed, but Ansible is using the wrong Python interpreter, 
+    #  please consult the documentation on ansible_python_interpreter"
+    # Recall, we are not using Python3 with Ansible because Trusty's Python3 is too outdated
+    # https://docs.ansible.com/ansible/latest/collections/community/postgresql/postgresql_user_module.html
+    - name: "Create pgsql database user {{ oods_db_user }}"
+      community.postgresql.postgresql_user:
+        name: "{{ oods_db_user }}"
+        password: "{{ oods_db_pwd }}"
+        role_attr_flags: CREATEDB,CREATEROLE,INHERIT,NOSUPERUSER,LOGIN
+        encrypted: yes
+        state: present
+        expires: infinity
+    
+    # https://docs.ansible.com/ansible/latest/collections/community/postgresql/postgresql_db_module.html
+    - name: "Create database {{ oods_db_name }}"
+      community.postgresql.postgresql_db:
+        name: "{{ oods_db_name }}"
+        encoding: UTF-8
+        state: present
+        owner: "{{ oods_db_user }}"
+      become: true
+      become_user: "{{ db_admin_username }}"
+    
+    - name: "Grant all privileges on database {{ oods_db_name }} to user {{ db_user }}"
+      community.postgresql.postgresql_user:
+        db: "{{ oods_db_name }}"
+        priv: ALL
+        name: "{{ oods_db_user }}"
+        password: "{{ oods_db_pwd }}"
+        encrypted: yes
+        state: present
+        expires: infinity
+      become: true
+      become_user: "{{ db_admin_username }}"
+  # END OF BLOCK
+
+
+# https://stackoverflow.com/questions/6523019/postgresql-scripting-psql-execution-with-password
+- name: Run the OnlyOffice SQL script to initialise the database
+  ansible.builtin.command: > 
+    psql -h{{ oods_db_host }} -U{{ oods_db_user }} -d {{ oods_db_name }}
+    -f {{ oods_out_folder }}/server/schema/postgresql/createdb.sql
+  environment:
+    PGPASSWORD: "{{ oods_db_pwd }}"
+  when: "oods_db_name not in oods_psql_info.databases"

@@ -1,0 +1,45 @@
+---
+
+# build using the python scripts in the provided build_tools repo
+
+# build of v8 requires python to symlink to python2
+# https://github.com/ONLYOFFICE/build_tools/issues/394#issuecomment-950189496
+# This is only necessary on Ubuntu 16.04+, since 14.04 already uses Python2 by default
+- name: Symlink python to python2
+  ansible.builtin.file:
+    src: /usr/bin/python2
+    dest: /usr/bin/python
+    state: link
+  when: ansible_distribution_major_version | int >= 16
+
+
+- name: Checkout and build OODS build_tools
+  become: true
+  become_user: "{{ ansible_env.USER }}"
+  block:
+
+    - name: "Checkout OnlyOffice/build_tools repo"
+      ansible.builtin.git:
+        repo: "https://github.com/ONLYOFFICE/build_tools.git"
+        dest: "{{ oods_buildtools_repo }}"
+        accept_hostkey: yes
+        version: "{{ oods_buildtools_version }}"
+        force: yes
+
+    # apply known necessary patches before building
+    - import_tasks: build-patches.yml
+
+    # Use `tail -f ~/.cache/build_tools.log" to keep track of progress
+    # it's OK to run automate.py with python3, just make sure that python -> python2
+    # https://github.com/ONLYOFFICE/build_tools/blob/master/Dockerfile#L10
+    - name: "python3 automate.py {{ oods_buildtools_component }}"
+      # we redirect both stdout and stderr to the log file
+      ansible.builtin.shell: >
+        python3 automate.py {{ oods_buildtools_component }} >
+        {{ ansible_env.HOME }}/.cache/build_tools.log 2>&1
+      args:
+        chdir: "{{ oods_buildtools_repo }}/tools/linux"
+  # END OF BLOCK
+
+
+- import_tasks: build-fonts-themes.yml

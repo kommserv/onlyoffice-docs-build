@@ -1,0 +1,23 @@
+---
+
+# this patch has proven necessary, otherwise we get the error:
+# OSError: [Errno 2] No such file or directory: 'scripts/../../document-server-integration/web/documentserver-example/nodejs/node_modules/sync-rpc/lib'
+# https://github.com/ONLYOFFICE/build_tools/commit/23d96dbd4dae438c75cac4fa252982e27b28c57e
+# This fix was previously reported https://github.com/ONLYOFFICE/build_tools/issues/414#issuecomment-1002430950
+# I'm not sure if ansible.posix.patch can be used for this use-case
+# Anyway, I'm doing this manually for now, it's a one-off fix anyway
+- name: "Apply patch https://github.com/ONLYOFFICE/build_tools/commit/23d96dbd4dae438c75cac4fa252982e27b28c57e"
+  block:
+
+    - name: "Patch scripts/build_server.py"
+      ansible.builtin.copy:
+        src: "build_server_rpc-patched.py"
+        dest: "{{ oods_buildtools_repo }}/scripts/build_server.py"
+        owner: "{{ ansible_env.USER }}"
+        group: "{{ ansible_env.USER }}"
+
+    - name: "Delete tools/linux/sync-rpc.patch"
+      ansible.builtin.file:
+        path: "{{ oods_buildtools_repo }}/tools/linux/sync-rpc.patch"
+        state: absent
+  # END OF BLOCK
